@@ -90,33 +90,111 @@ TokenType getToken(void)
    /* The while loop simulates the process of DFA:
       get one lexical unit each time,
       update the currentToken/state/save above
-	    according to current state and the received lexical unit.
+      according to current state and the received lexical unit.
    */
    while (state != DONE)
    { int c = getNextChar();
      save = TRUE;
      switch (state)
      {
-      /* Write the process of other cases referring to case INID. */
+       case START:
+         if (isspace(c))
+           save = FALSE;
+         else if (c == ':')
+           state = INASSIGN;
+         else if (c == '{')
+         {
+           save = FALSE;
+           state = INCOMMENT;
+         }
+         else if (isdigit(c))
+           state = INNUM;
+         else if (isalpha(c))
+           state = INID;
+         else if (c == EOF)
+         {
+           save = FALSE;
+           state = DONE;
+           currentToken = ENDFILE;
+         }
+         else
+         {
+           state = DONE;
+           switch (c)
+           {
+             case '<': currentToken = LT; break;
+             case '=': currentToken = EQ; break;
+             case '+': currentToken = PLUS; break;
+             case '-': currentToken = MINUS; break;
+             case '*': currentToken = TIMES; break;
+             case '/': currentToken = OVER; break;
+             case '(': currentToken = LPAREN; break;
+             case ')': currentToken = RPAREN; break;
+             case ';': currentToken = SEMI; break;
+             default:  currentToken = ERROR; break;
+           }
+         }
+         break;
+       case INASSIGN:
+         if (c == '=')
+         {
+           state = DONE;
+           currentToken = ASSIGN;
+         }
+         else
+         {
+           /* backup in the input */
+           ungetNextChar();
+           save = FALSE;
+           state = DONE;
+           currentToken = ERROR;
+         }
+         break;
+       case INCOMMENT:
+         if (c == '}')
+         {
+           save = FALSE;
+           state = START;
+         }
+         else if (c == EOF)
+         {
+           save = FALSE;
+           state = DONE;
+           currentToken = ENDFILE;
+         }
+         else
+           save = FALSE;
+         break;
+       case INNUM:
+         if (!isdigit(c))
+         {
+           /* backup in the input */
+           ungetNextChar();
+           save = FALSE;
+           state = DONE;
+           currentToken = NUM;
+         }
+         break;
        case INID:
          if (!isalpha(c))
-         { /* backup in the input */
+         {
+           /* backup in the input */
            ungetNextChar();
            save = FALSE;
            state = DONE;
            currentToken = ID;
          }
          break;
-
-
-
-
-
+       default:
+         state = DONE;
+         currentToken = ERROR;
+         break;
      }
      if ((save) && (tokenStringIndex <= MAXTOKENLEN))
        tokenString[tokenStringIndex++] = (char) c;
      if (state == DONE)
-     { tokenString[tokenStringIndex] = '\0';
+     {
+       tokenString[tokenStringIndex] = '\0';
        if (currentToken == ID)
          currentToken = reservedLookup(tokenString);
      }
@@ -126,6 +204,4 @@ TokenType getToken(void)
      printToken(currentToken,tokenString);
    }
    return currentToken;
-
-
 } /* end getToken */
